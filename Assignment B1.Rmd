@@ -1,0 +1,102 @@
+---
+title: "Assignment B1"
+author: "Katia Rosenflanz"
+date: "2024-10-28"
+output: github_document
+---
+
+```{r}
+library(palmerpenguins)
+library(datateachr)
+library(tidyverse)
+library(testthat)
+```
+
+
+```{r}
+#' Calculate Summary Statistics by Group
+#' 
+#' @description 
+#' The function calculates four summary statistics (min, max, mean, standard deviation) of a variable
+#' by group within a data table. The variables used for grouping and summarizing are input by the user.
+#' 
+#' @param data Input data.  
+#' @param sort_var Variable used for grouping; named as sort_var to indicate that it is used to sort 
+#' the data into groups for subsequent analysis 
+#' @param stat_var Numeric variable which is used to calculate summary statistics. Named stat_var as
+#' this is the variable with which the summary statistics are calculated 
+#'
+#' @return A tibble is returned which contains the grouping variable and summary statistics as columns (min, max, mean, and standard deviation) 
+sum_stats <- function(data, sort_var, stat_var) {
+  #check to see if the variable for summary statistics calculations is numeric 
+  if (!is.numeric(pull(data, !!enquo(stat_var)))) {
+    stop("The variable you are trying to summarize is not numeric.")
+  }
+  new_data <- {{data}} %>%
+    group_by({{sort_var}}) %>%
+    summarize(min = if(all(is.na({{stat_var}}))) NA_real_   #if all values are NA, treat NA as double/numeric missing value
+              else min({{stat_var}}, na.rm = TRUE),         #remove all NA values before calculation
+              max = if(all(is.na({{stat_var}}))) NA_real_   #if all values are NA, treat NA as double/numeric missing value
+              else max({{stat_var}}, na.rm = TRUE), 
+              mean= mean({{stat_var}}, na.rm = TRUE), 
+              stdev = sd({{stat_var}}, na.rm = TRUE))
+  return(new_data)
+}
+```
+
+After the function has been defined, several examples can be used to demonstrate its function. 
+The expected output is a tibble containing the grouped variable and the four summary statistics columns. 
+```{r}
+#Example 1: penguins dataset
+#group by island, summarize the body_mass_g variable
+sum_stats(penguins, island, body_mass_g)
+
+```
+```{r}
+#Example 2: cancer_sample dataset
+#group by diagnosis (benign or malignant), summarize the area_mean variable
+sum_stats(cancer_sample, diagnosis, area_mean)
+
+```
+Next, I will test a use of the sum_stats function that I know will produce an error: calculating summary statistics on a variable which is non-numeric. In this case, the sum_stats function will try to summarize the root_barrier variable, which is not numeric; this will cause an error. 
+```{r error = TRUE}
+#Example 3: vancouver_trees dataset
+#group by genus, calculate statistics on root barrier (which is nonnumeric)
+sum_stats(vancouver_trees, genus_name, root_barrier)
+
+```
+Finally, I can run several formal tests on the function using the testthat package. 
+```{r}
+#### Testing the function ####
+#test case 1: vector with no NAs
+test_that("Sum_stats testing with data with no NAs works", {
+  data_noNA <- data.frame(
+    sort_var = c("A", "A", "B", "B", "C", "C"),
+    stat_var = c(1,2,3,4,5,6)
+  )
+  expect_equal(sum_stats(data_noNA, sort_var, stat_var)$min, c(1, 3, 5))
+})
+
+#test case 2: vector with NAs 
+test_that("Sum_stats testing with data including NAs should also work", {
+
+  data_withNA <- data.frame(
+    sort_var = c("A", "A", "B", "B", "C", "C"),
+    stat_var = c(1,2, NA, NA, NA, 6)
+  )
+  expect_equal(sum_stats(data_withNA, sort_var, stat_var)$mean, c(1.5, NA, 6))
+})
+
+#test case 3: Data has non-numeric input as the variable for summarizing
+test_that("Sum_stats fails with non-numeric input as summarizing variable", {
+  
+  data_nonNumeric <- data.frame(
+    sort_var = c("A", "A", "B", "B", "C", "C"),
+    stat_var = c("Hello", "Yes", "Mountain", "River", "Forest", "Desert")
+  )
+  expect_error(sum_stats(data_nonNumeric))
+})
+```
+
+
+
